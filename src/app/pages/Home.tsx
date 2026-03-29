@@ -175,28 +175,56 @@ export default function Home() {
     setPaymentMethodSelected(true);
   };
 
+  const isMobileDevice = () =>
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  const isAndroidDevice = () => /Android/i.test(navigator.userAgent);
+
   // 카카오페이로 열기
   const handleOpenKakaoPay = () => {
-    const kakaoPayLink = `kakaotalk://kakaopay/money/transfer?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&account=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}`;
-    window.open(kakaoPayLink, "_blank");
+    const transferLink = `kakaotalk://kakaopay/money/transfer?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&account=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}`;
+    const payHomeLink = "kakaotalk://kakaopay/main";
 
-    // 카카오톡 미설치/딥링크 실패 시 사용자 진행이 막히지 않도록 계좌복사로 폴백
+    if (!isMobileDevice()) {
+      toast.error("모바일에서 카카오페이를 열 수 있어요", {
+        description: "계좌를 복사해두었습니다. 카카오페이 앱에서 직접 이체해 주세요.",
+      });
+      void handleCopyAccount();
+      return;
+    }
+
+    setShowBottomSheet(false);
+    setPaymentMethodSelected(true);
+
+    // 1) 직접 송금 화면 딥링크 시도
+    window.location.href = transferLink;
+
+    // 2) 직접 송금 딥링크가 막히는 기기에서는 카카오페이 홈으로 재시도
     setTimeout(() => {
       if (document.visibilityState === "visible") {
-        toast.error("카카오페이 연결에 실패했어요", {
+        if (isAndroidDevice()) {
+          const androidIntent = `intent://kakaopay/main#Intent;scheme=kakaotalk;package=com.kakao.talk;end`;
+          window.location.href = androidIntent;
+        } else {
+          window.location.href = payHomeLink;
+        }
+      }
+    }, 600);
+
+    // 3) 여전히 실패하면 계좌복사로 진행 가능하게 보장
+    setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        toast.error("카카오페이 자동 연결이 실패했어요", {
           description:
             "계좌를 복사해두었습니다. 카카오페이에서 직접 이체해 주세요.",
         });
         void handleCopyAccount();
       }
-    }, 1200);
+    }, 1400);
 
-    toast.success("카카오페이로 이동을 시도합니다", {
-      description: `실패하면 자동으로 계좌를 복사해드려요`,
+    toast.success("카카오페이 연결을 시도합니다", {
+      description: "직접 송금 화면이 안 열리면 카카오페이 홈으로 자동 재시도해요.",
     });
-
-    setShowBottomSheet(false);
-    setPaymentMethodSelected(true);
   };
 
   // 제출 처리
