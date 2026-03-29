@@ -73,7 +73,7 @@ export default function Home() {
 
   // Shift 키 5번 연속 감지
   useEffect(() => {
-    let resetTimer: NodeJS.Timeout;
+    let resetTimer: ReturnType<typeof setTimeout>;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Shift") {
@@ -101,6 +101,14 @@ export default function Home() {
       window.removeEventListener("keydown", handleKeyDown);
       clearTimeout(resetTimer);
     };
+  }, []);
+
+  // 바텀시트에서 로고가 늦게 보이는 현상을 줄이기 위해 앱 시작 시 미리 로드
+  useEffect(() => {
+    [tossLogo, kakaoPayLogo].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
   }, []);
 
   // 관리자 로그인 처리
@@ -194,27 +202,27 @@ export default function Home() {
   const isAndroidDevice = () => /Android/i.test(navigator.userAgent);
 
   // 카카오페이로 열기
-  const handleOpenKakaoPay = async () => {
+  const handleOpenKakaoPay = () => {
+    toast.info("카카오페이 기능 구현중");
+
+    /*
     const payTransferEntryLink =
       "kakaotalk://kakaopay/money/transfer";
-
-    const copied = await copyAccountNumber();
-    if (copied) {
-      toast.success("계좌를 복사했고 카카오페이 송금 화면을 열어요", {
-        description:
-          "카카오페이에서 붙여넣기 후 송금해 주세요.",
-      });
-    } else {
-      toast.error("계좌 복사에 실패했어요", {
-        description:
-          "카카오페이 홈으로 이동 후 계좌번호를 직접 입력해 주세요.",
-      });
-    }
+    const copyPromise = copyAccountNumber();
 
     if (!isMobileDevice()) {
-      toast.error("모바일에서 카카오페이를 열 수 있어요", {
-        description:
-          "계좌는 복사되었어요. 모바일 카카오페이에서 붙여넣기 후 송금해 주세요.",
+      copyPromise.then((copied) => {
+        if (copied) {
+          toast.error("모바일에서 카카오페이를 열 수 있어요", {
+            description:
+              "계좌는 복사되었어요. 모바일 카카오페이에서 붙여넣기 후 송금해 주세요.",
+          });
+        } else {
+          toast.error("모바일에서 카카오페이를 열 수 있어요", {
+            description:
+              "계좌 복사가 실패했어요. 계좌번호를 직접 입력해 주세요.",
+          });
+        }
       });
       return;
     }
@@ -255,6 +263,21 @@ export default function Home() {
         });
       }
     }, 1400);
+
+    copyPromise.then((copied) => {
+      if (copied) {
+        toast.success("계좌를 복사했고 카카오페이 송금 화면을 열어요", {
+          description:
+            "카카오페이에서 붙여넣기 후 송금해 주세요.",
+        });
+      } else {
+        toast.error("계좌 복사에 실패했어요", {
+          description:
+            "카카오페이에서 계좌번호를 직접 입력해 주세요.",
+        });
+      }
+    });
+    */
   };
 
   // 제출 처리
