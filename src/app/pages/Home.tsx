@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Copy,
@@ -112,7 +112,7 @@ export default function Home() {
   }, []);
 
   // sessionStorage에 현재 상태 저장 (카카오톡 웹뷰 종료/복귀 대비)
-  const saveSessionState = () => {
+  const saveSessionState = useCallback(() => {
     const state = {
       step,
       name,
@@ -123,58 +123,60 @@ export default function Home() {
     // localStorage와 sessionStorage 둘 다 저장 (중복 보장)
     sessionStorage.setItem("paymentState", JSON.stringify(state));
     localStorage.setItem("paymentState", JSON.stringify(state));
-  };
+  }, [step, name, studentId, selectedAmount, paymentMethodSelected]);
 
   // localStorage에서 상태 복구
-  const loadSessionState = () => {
+  const loadSessionState = useCallback(() => {
     // localStorage 먼저 확인, 없으면 sessionStorage 확인
     const saved = localStorage.getItem("paymentState") || sessionStorage.getItem("paymentState");
     if (saved) {
       try {
         const state = JSON.parse(saved);
-        setStep(state.step);
-        setName(state.name);
-        setStudentId(state.studentId);
-        setSelectedAmount(state.selectedAmount);
-        setPaymentMethodSelected(state.paymentMethodSelected);
-        // 복구 후 localStorage에서 지우지 않음 (다시 필요할 수 있음)
-      } catch {
-        // 파싱 실패 시 무시
+        console.log("Restored state:", state);
+        setStep(state.step || "form");
+        setName(state.name || "");
+        setStudentId(state.studentId || "");
+        setSelectedAmount(state.selectedAmount || 30000);
+        setPaymentMethodSelected(state.paymentMethodSelected || false);
+      } catch (e) {
+        console.error("Failed to parse saved state:", e);
       }
     }
-  };
+  }, []);
 
-  // 페이지 포커스 복귀 감지 (토스 앱에서 돌아올 때)
+  // 페이지 포커스 복귀 감지 + beforeunload 처리
   useEffect(() => {
+    // 초기 로드 시 저장된 상태 복구
+    loadSessionState();
+
     const handleVisibilityChange = () => {
+      console.log("Visibility changed:", document.visibilityState);
       if (document.visibilityState === "visible") {
-        loadSessionState();
-      } else {
-        saveSessionState();
+        // 약간의 딜레이 후 복구 (DOM 준비 완료 대기)
+        setTimeout(() => {
+          loadSessionState();
+        }, 300);
       }
     };
 
-    // 페이지가 닫히기 전에 상태 저장 (매우 중요)
     const handleBeforeUnload = () => {
+      console.log("BeforeUnload triggered, saving state");
       saveSessionState();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
-    // 초기 로드 시 저장된 상태 복구 시도
-    loadSessionState();
-
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, []);
+  }, [loadSessionState, saveSessionState]);
 
-  // 상태 변경 시마다 저장
+  // 상태 변경 시마다 자동 저장
   useEffect(() => {
     saveSessionState();
-  }, [step, name, studentId, selectedAmount, paymentMethodSelected]);
+  }, [step, name, studentId, selectedAmount, paymentMethodSelected, saveSessionState]);
 
   // 관리자 로그인 처리
   const handleAdminLogin = async () => {
