@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Copy,
@@ -173,26 +173,18 @@ export default function Home() {
     };
   }, [loadSessionState, saveSessionState]);
 
-  // 상태 변경 시마다 자동 저장 (디바운싱 적용)
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
-
+  // 앱 백그라운드 진입 시에만 저장 (입력 중 리렌더링 방지)
   useEffect(() => {
-    // 기존 타이머 클리어
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // 500ms 후 저장 (사용자가 입력을 멈춘 후)
-    debounceTimerRef.current = setTimeout(() => {
+    const handlePageHide = () => {
+      console.log("Page hiding, saving state");
       saveSessionState();
-    }, 500);
-
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
     };
-  }, [step, name, studentId, selectedAmount, paymentMethodSelected, saveSessionState]);
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [saveSessionState]);
 
   // 관리자 로그인 처리
   const handleAdminLogin = async () => {
