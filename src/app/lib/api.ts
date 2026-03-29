@@ -1,6 +1,7 @@
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/payment-confirmation`;
+const ADMIN_PASSWORD_STORAGE_KEY = 'uhung_admin_password';
 
 export interface PaymentSubmission {
   id: string;
@@ -9,6 +10,23 @@ export interface PaymentSubmission {
   amount: number;
   status: 'pending' | 'confirmed';
   timestamp: number;
+}
+
+function getStoredAdminPassword() {
+  if (typeof window === 'undefined') return '';
+  return window.sessionStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) || '';
+}
+
+function withAdminHeader(headers?: HeadersInit): HeadersInit {
+  const password = getStoredAdminPassword();
+  if (!password) {
+    return headers || {};
+  }
+
+  return {
+    ...(headers || {}),
+    'x-admin-password': password,
+  };
 }
 
 async function fetchAPI(endpoint: string, options?: RequestInit) {
@@ -45,7 +63,9 @@ export const api = {
 
   // 전체 제출 내역 조회 (운영진용)
   async getAllSubmissions() {
-    return fetchAPI('/submissions');
+    return fetchAPI('/submissions', {
+      headers: withAdminHeader(),
+    });
   },
 
   // 상태 업데이트 (운영진용)
@@ -53,6 +73,7 @@ export const api = {
     return fetchAPI(`/submissions/${studentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
+      headers: withAdminHeader(),
     });
   },
 
@@ -61,6 +82,7 @@ export const api = {
     return fetchAPI('/match-csv', {
       method: 'POST',
       body: JSON.stringify({ entries }),
+      headers: withAdminHeader(),
     });
   },
 
@@ -68,11 +90,38 @@ export const api = {
   async deleteAllSubmissions() {
     return fetchAPI('/submissions', {
       method: 'DELETE',
+      headers: withAdminHeader(),
     });
   },
 
   // Health check
   async healthCheck() {
     return fetchAPI('/health');
+  },
+
+  // 관리자 비밀번호 검증
+  async verifyAdminPassword(password: string) {
+    return fetchAPI('/admin-auth', {
+      method: 'POST',
+      headers: {
+        'x-admin-password': password,
+      },
+    });
+  },
+};
+
+export const adminSession = {
+  setPassword(password: string) {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.setItem(ADMIN_PASSWORD_STORAGE_KEY, password);
+  },
+
+  clear() {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY);
+  },
+
+  hasPassword() {
+    return getStoredAdminPassword().length > 0;
   },
 };

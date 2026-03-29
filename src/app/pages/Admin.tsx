@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { 
   Upload, 
   CheckCircle2, 
@@ -15,16 +15,23 @@ import {
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { toast } from 'sonner';
-import { api, type PaymentSubmission } from '../lib/api';
+import { api, adminSession, type PaymentSubmission } from '../lib/api';
 
 export default function Admin() {
   const [submissions, setSubmissions] = useState<PaymentSubmission[]>([]);
   const [csvText, setCsvText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    if (!adminSession.hasPassword()) {
+      toast.error('관리자 인증이 필요합니다');
+      navigate('/');
+      return;
+    }
+
     loadSubmissions();
-  }, []);
+  }, [navigate]);
 
   const loadSubmissions = async () => {
     setIsLoading(true);
@@ -33,6 +40,12 @@ export default function Admin() {
       setSubmissions(response.submissions || []);
     } catch (error: any) {
       console.error('Failed to load submissions:', error);
+      if (error?.message === 'Unauthorized' || error?.message?.includes('401')) {
+        adminSession.clear();
+        toast.error('인증이 만료되었습니다. 다시 로그인해주세요');
+        navigate('/');
+        return;
+      }
       toast.error('데이터 로드 실패', {
         description: error.message,
       });
@@ -69,6 +82,12 @@ export default function Admin() {
       setCsvText('');
     } catch (error: any) {
       console.error('CSV processing failed:', error);
+      if (error?.message === 'Unauthorized' || error?.message?.includes('401')) {
+        adminSession.clear();
+        toast.error('인증이 만료되었습니다. 다시 로그인해주세요');
+        navigate('/');
+        return;
+      }
       toast.error('CSV 처리 실패', {
         description: error.message,
       });
@@ -86,6 +105,12 @@ export default function Admin() {
       loadSubmissions();
     } catch (error: any) {
       console.error('Failed to update status:', error);
+      if (error?.message === 'Unauthorized' || error?.message?.includes('401')) {
+        adminSession.clear();
+        toast.error('인증이 만료되었습니다. 다시 로그인해주세요');
+        navigate('/');
+        return;
+      }
       toast.error('상태 변경 실패', {
         description: error.message,
       });
@@ -101,6 +126,12 @@ export default function Admin() {
       loadSubmissions();
     } catch (error: any) {
       console.error('Failed to delete all:', error);
+      if (error?.message === 'Unauthorized' || error?.message?.includes('401')) {
+        adminSession.clear();
+        toast.error('인증이 만료되었습니다. 다시 로그인해주세요');
+        navigate('/');
+        return;
+      }
       toast.error('삭제 실패', {
         description: error.message,
       });

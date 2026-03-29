@@ -4,6 +4,26 @@ import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.ts";
 
 const app = new Hono();
+const ADMIN_PASSWORD = Deno.env.get("ADMIN_PASSWORD");
+const ALLOWED_AMOUNTS = new Set([30000, 40000]);
+const STUDENT_ID_REGEX = /^\d{8}$/;
+
+function getInvalidRequest(message: string) {
+  return { error: message };
+}
+
+function requireAdminAuth(c: any) {
+  if (!ADMIN_PASSWORD) {
+    return c.json({ error: "Admin password is not configured" }, 500);
+  }
+
+  const password = c.req.header("x-admin-password") || "";
+  if (password !== ADMIN_PASSWORD) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  return null;
+}
 
 // Enable logger
 app.use('*', logger(console.log));
@@ -13,7 +33,11 @@ app.use(
   "/*",
   cors({
     origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-admin-password",
+    ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     maxAge: 600,
@@ -115,14 +139,30 @@ app.get("/payment-confirmation/health", (c) => {
   return c.json({ status: "ok" });
 });
 
+// 관리자 인증 확인
+app.post("/payment-confirmation/admin-auth", (c) => {
+  const authError = requireAdminAuth(c);
+  if (authError) return authError;
+  return c.json({ success: true });
+});
+
 // 입금 확인 요청 제출
 app.post("/payment-confirmation/submissions", async (c) => {
   try {
     const body = await c.req.json();
     const { name, studentId, amount } = body;
+    const parsedAmount = Number(amount);
 
-    if (!name || !studentId || !amount) {
-      return c.json({ error: "Missing required fields" }, 400);
+    if (!name || !studentId || amount === undefined || amount === null) {
+      return c.json(getInvalidRequest("Missing required fields"), 400);
+    }
+
+    if (!STUDENT_ID_REGEX.test(String(studentId))) {
+      return c.json(getInvalidRequest("학번은 8자리 숫자여야 합니다"), 400);
+    }
+
+    if (!ALLOWED_AMOUNTS.has(parsedAmount)) {
+      return c.json(getInvalidRequest("허용되지 않은 금액입니다"), 400);
     }
 
     // 학번 중복 확인
@@ -138,7 +178,7 @@ app.post("/payment-confirmation/submissions", async (c) => {
       id: crypto.randomUUID(),
       name: name.trim(),
       studentId,
-      amount: parseInt(amount),
+      amount: parsedAmount,
       status: 'pending',
       timestamp: Date.now(),
     };
@@ -174,6 +214,9 @@ app.get("/payment-confirmation/submissions/:studentId", async (c) => {
 
 // 전체 제출 내역 조회 (운영진용)
 app.get("/payment-confirmation/submissions", async (c) => {
+  const authError = requireAdminAuth(c);
+  if (authError) return authError;
+
   try {
     const submissions = await kv.getByPrefix("submission:");
     return c.json({ submissions });
@@ -185,6 +228,9 @@ app.get("/payment-confirmation/submissions", async (c) => {
 
 // 상태 업데이트 (운영진용)
 app.put("/payment-confirmation/submissions/:studentId", async (c) => {
+  const authError = requireAdminAuth(c);
+  if (authError) return authError;
+
   try {
     const studentId = c.req.param("studentId");
     const body = await c.req.json();
@@ -214,6 +260,9 @@ app.put("/payment-confirmation/submissions/:studentId", async (c) => {
 
 // CSV 자동 매칭
 app.post("/payment-confirmation/match-csv", async (c) => {
+  const authError = requireAdminAuth(c);
+  if (authError) return authError;
+
   try {
     const body = await c.req.json();
     const { entries } = body; // [{ name, amount }, ...]
@@ -227,10 +276,15 @@ app.post("/payment-confirmation/match-csv", async (c) => {
 
     for (const entry of entries) {
       const { name, amount } = entry;
+      const parsedAmount = Number(amount);
+
+      if (!name || !Number.isFinite(parsedAmount)) {
+        continue;
+      }
       
       // 이름과 금액이 일치하고 대기중인 제출 찾기
       const match = submissions.find(
-        (s: any) => s.name === name && s.amount === parseInt(amount) && s.status === 'pending'
+        (s: any) => s.name === name && s.amount === parsedAmount && s.status === 'pending'
       );
 
       if (match) {
@@ -250,6 +304,9 @@ app.post("/payment-confirmation/match-csv", async (c) => {
 
 // 전체 데이터 삭제 (운영진용)
 app.delete("/payment-confirmation/submissions", async (c) => {
+  const authError = requireAdminAuth(c);
+  if (authError) return authError;
+
   try {
     const submissions = await kv.getByPrefix("submission:");
     

@@ -30,7 +30,11 @@ import confetti from "canvas-confetti";
 import logo from "../../assets/dku-likelion-logo.png";
 import kakaoPayLogo from "../../assets/kakaopay-logo.png";
 import tossLogo from "../../assets/toss-logo.png";
-import { api, type PaymentSubmission } from "../lib/api";
+import {
+  api,
+  adminSession,
+  type PaymentSubmission,
+} from "../lib/api";
 import { useNavigate } from "react-router";
 
 type Step = "form" | "loading" | "complete";
@@ -97,18 +101,23 @@ export default function Home() {
   }, []);
 
   // 관리자 로그인 처리
-  const handleAdminLogin = () => {
-    const correctPassword =
-      import.meta.env.VITE_ADMIN_PASSWORD || "admin123";
+  const handleAdminLogin = async () => {
+    const password = adminPassword.trim();
+    if (!password) {
+      toast.error("비밀번호를 입력해주세요");
+      return;
+    }
 
-    if (adminPassword === correctPassword) {
+    try {
+      await api.verifyAdminPassword(password);
+      adminSession.setPassword(password);
       toast.success("관리자 인증 성공", {
         description: "운영진 대시보드로 이동합니다",
       });
       setShowAdminDialog(false);
       setAdminPassword("");
       navigate("/admin");
-    } else {
+    } catch {
       toast.error("비밀번호가 올바르지 않습니다");
       setAdminPassword("");
     }
@@ -155,7 +164,7 @@ export default function Home() {
 
   // 토스로 열기
   const handleOpenToss = () => {
-    const tossLink = `supertoss://send?bank=${ACCOUNT_INFO.bank}&accountNo=${ACCOUNT_INFO.accountNumber}&amount=${selectedAmount}&msg=멋쟁이사자처럼14기`;
+    const tossLink = `supertoss://send?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&accountNo=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}&msg=${encodeURIComponent("멋쟁이사자처럼14기")}`;
     window.open(tossLink, "_blank");
 
     toast.success("토스 앱으로 이동합니다", {
@@ -168,11 +177,22 @@ export default function Home() {
 
   // 카카오페이로 열기
   const handleOpenKakaoPay = () => {
-    const kakaoPayLink = `kakaotalk://kakaopay/money/transfer?bank=${ACCOUNT_INFO.bank}&account=${ACCOUNT_INFO.accountNumber}&amount=${selectedAmount}`;
+    const kakaoPayLink = `kakaotalk://kakaopay/money/transfer?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&account=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}`;
     window.open(kakaoPayLink, "_blank");
 
-    toast.success("카카오페이로 이동합니다", {
-      description: `송금 후 확인 요청 버튼을 눌러주세요`,
+    // 카카오톡 미설치/딥링크 실패 시 사용자 진행이 막히지 않도록 계좌복사로 폴백
+    setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        toast.error("카카오페이 연결에 실패했어요", {
+          description:
+            "계좌를 복사해두었습니다. 카카오페이에서 직접 이체해 주세요.",
+        });
+        void handleCopyAccount();
+      }
+    }, 1200);
+
+    toast.success("카카오페이로 이동을 시도합니다", {
+      description: `실패하면 자동으로 계좌를 복사해드려요`,
     });
 
     setShowBottomSheet(false);
