@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Copy,
@@ -111,19 +111,39 @@ export default function Home() {
     });
   }, []);
 
-  // sessionStorage에 현재 상태 저장 (카카오톡 웹뷰 종료/복귀 대비)
-  const saveSessionState = useCallback(() => {
-    const state = {
+  const latestStateRef = useRef({
+    step,
+    name,
+    studentId,
+    selectedAmount,
+    paymentMethodSelected,
+  });
+
+  useEffect(() => {
+    latestStateRef.current = {
       step,
       name,
       studentId,
       selectedAmount,
       paymentMethodSelected,
     };
-    // localStorage와 sessionStorage 둘 다 저장 (중복 보장)
-    sessionStorage.setItem("paymentState", JSON.stringify(state));
-    localStorage.setItem("paymentState", JSON.stringify(state));
   }, [step, name, studentId, selectedAmount, paymentMethodSelected]);
+
+  // session/localStorage에 현재 상태 저장 (카카오톡 웹뷰 종료/복귀 대비)
+  const saveSessionState = useCallback(
+    (overrideState?: {
+      step: Step;
+      name: string;
+      studentId: string;
+      selectedAmount: number;
+      paymentMethodSelected: boolean;
+    }) => {
+      const state = overrideState ?? latestStateRef.current;
+      sessionStorage.setItem("paymentState", JSON.stringify(state));
+      localStorage.setItem("paymentState", JSON.stringify(state));
+    },
+    [],
+  );
 
   // localStorage에서 상태 복구
   const loadSessionState = useCallback(() => {
@@ -132,7 +152,6 @@ export default function Home() {
     if (saved) {
       try {
         const state = JSON.parse(saved);
-        console.log("Restored state:", state);
         setStep(state.step || "form");
         setName(state.name || "");
         setStudentId(state.studentId || "");
@@ -150,7 +169,6 @@ export default function Home() {
     loadSessionState();
 
     const handleVisibilityChange = () => {
-      console.log("Visibility changed:", document.visibilityState);
       if (document.visibilityState === "visible") {
         // 약간의 딜레이 후 복구 (DOM 준비 완료 대기)
         setTimeout(() => {
@@ -160,7 +178,6 @@ export default function Home() {
     };
 
     const handleBeforeUnload = () => {
-      console.log("BeforeUnload triggered, saving state");
       saveSessionState();
     };
 
@@ -176,7 +193,6 @@ export default function Home() {
   // 앱 백그라운드 진입 시에만 저장 (입력 중 리렌더링 방지)
   useEffect(() => {
     const handlePageHide = () => {
-      console.log("Page hiding, saving state");
       saveSessionState();
     };
 
@@ -260,8 +276,14 @@ export default function Home() {
 
   // 토스로 열기
   const handleOpenToss = () => {
-    // 토스 앱 열기 전에 상태 저장 (카카오톡 웹뷰 종료 대비)
-    saveSessionState();
+    // 토스 앱 열기 전에 현재 + 다음 상태를 미리 저장
+    saveSessionState({
+      step,
+      name,
+      studentId,
+      selectedAmount,
+      paymentMethodSelected: true,
+    });
 
     // 메시지에 사용자 이름 포함
     const msg = name.trim() ? `${name} - 멋쟁이사자처럼14기` : "멋쟁이사자처럼14기";
@@ -273,7 +295,13 @@ export default function Home() {
 
     // 딥링크 열기 직후 추가로 상태 저장 (웹뷰 닫힘 대비)
     setTimeout(() => {
-      saveSessionState();
+      saveSessionState({
+        step,
+        name,
+        studentId,
+        selectedAmount,
+        paymentMethodSelected: true,
+      });
     }, 100);
 
     window.open(tossLink, "_blank");
