@@ -244,7 +244,9 @@ export default function Home() {
     // 토스 앱 열기 전에 상태 저장 (카카오톡 웹뷰 종료 대비)
     saveSessionState();
 
-    const tossLink = `supertoss://send?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&accountNo=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}&msg=${encodeURIComponent("멋쟁이사자처럼14기")}`;
+    // 메시지에 사용자 이름 포함
+    const msg = name.trim() ? `${name} - 멋쟁이사자처럼14기` : "멋쟁이사자처럼14기";
+    const tossLink = `supertoss://send?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&accountNo=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}&msg=${encodeURIComponent(msg)}`;
     window.open(tossLink, "_blank");
 
     toast.success("토스 앱으로 이동합니다", {
