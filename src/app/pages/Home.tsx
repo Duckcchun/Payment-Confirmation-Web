@@ -111,6 +111,62 @@ export default function Home() {
     });
   }, []);
 
+  // sessionStorage에 현재 상태 저장 (카카오톡 웹뷰 종료/복귀 대비)
+  const saveSessionState = () => {
+    sessionStorage.setItem(
+      "paymentState",
+      JSON.stringify({
+        step,
+        name,
+        studentId,
+        selectedAmount,
+        paymentMethodSelected,
+      }),
+    );
+  };
+
+  // sessionStorage에서 상태 복구
+  const loadSessionState = () => {
+    const saved = sessionStorage.getItem("paymentState");
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        setStep(state.step);
+        setName(state.name);
+        setStudentId(state.studentId);
+        setSelectedAmount(state.selectedAmount);
+        setPaymentMethodSelected(state.paymentMethodSelected);
+      } catch {
+        // 파싱 실패 시 무시
+      }
+    }
+  };
+
+  // 페이지 포커스 복귀 감지 (토스 앱에서 돌아올 때)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadSessionState();
+      } else {
+        saveSessionState();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // 초기 로드 시 저장된 상태 복구 시도
+    loadSessionState();
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // 상태 변경 시마다 저장
+  useEffect(() => {
+    saveSessionState();
+  }, [step, name, studentId, selectedAmount, paymentMethodSelected]);
+
   // 관리자 로그인 처리
   const handleAdminLogin = async () => {
     const password = adminPassword.trim();
@@ -185,6 +241,9 @@ export default function Home() {
 
   // 토스로 열기
   const handleOpenToss = () => {
+    // 토스 앱 열기 전에 상태 저장 (카카오톡 웹뷰 종료 대비)
+    saveSessionState();
+
     const tossLink = `supertoss://send?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&accountNo=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}&msg=${encodeURIComponent("멋쟁이사자처럼14기")}`;
     window.open(tossLink, "_blank");
 
