@@ -192,11 +192,12 @@ export default function Home() {
 
   // 카카오페이로 열기
   const handleOpenKakaoPay = async () => {
-    const payHomeLink = "kakaotalk://kakaopay/main";
+    const payTransferEntryLink =
+      "kakaotalk://kakaopay/money/transfer";
 
     const copied = await copyAccountNumber();
     if (copied) {
-      toast.success("계좌를 복사했어요", {
+      toast.success("계좌를 복사했고 카카오페이 송금 화면을 열어요", {
         description:
           "카카오페이에서 붙여넣기 후 송금해 주세요.",
       });
@@ -218,19 +219,19 @@ export default function Home() {
     setShowBottomSheet(false);
     setPaymentMethodSelected(true);
 
-    // 카카오페이 홈 열기
+    // 카카오페이 송금 진입 화면 열기
     if (isAndroidDevice()) {
       const androidIntent =
-        "intent://kakaopay/main#Intent;scheme=kakaotalk;package=com.kakao.talk;end";
+        "intent://kakaopay/money/transfer#Intent;scheme=kakaotalk;package=com.kakao.talk;end";
       window.location.href = androidIntent;
     } else {
-      window.location.href = payHomeLink;
+      window.location.href = payTransferEntryLink;
     }
 
-    // 홈 실행도 실패하면 사용자에게 다음 동작을 명확히 안내
+    // 실행 실패 시 사용자에게 다음 동작을 명확히 안내
     setTimeout(() => {
       if (document.visibilityState === "visible") {
-        toast.error("카카오페이 홈 실행에 실패했어요", {
+        toast.error("카카오페이 송금 화면 실행에 실패했어요", {
           description:
             "계좌는 복사되어 있어요. 카카오톡 앱을 직접 열어 카카오페이로 송금해 주세요.",
         });
@@ -928,10 +929,6 @@ export default function Home() {
                     <Copy className="mr-3 h-5 w-5" />
                     계좌번호 복사하기
                   </Button>
-
-                  <p className="text-xs text-center text-gray-500">
-                    가장 확실한 방법은 계좌 복사 후 직접 송금입니다.
-                  </p>
 
                   {/* 구분선 */}
                   <div className="relative flex items-center gap-3 py-2">
