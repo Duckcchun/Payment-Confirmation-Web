@@ -196,7 +196,7 @@ export default function Home() {
 
     const copied = await copyAccountNumber();
     if (copied) {
-      toast.success("계좌를 복사했고 카카오페이 홈을 열어요", {
+      toast.success("계좌를 복사했어요", {
         description:
           "카카오페이에서 붙여넣기 후 송금해 주세요.",
       });
@@ -210,7 +210,7 @@ export default function Home() {
     if (!isMobileDevice()) {
       toast.error("모바일에서 카카오페이를 열 수 있어요", {
         description:
-          "지금은 계좌가 복사된 상태예요. 모바일 카카오페이에서 송금해 주세요.",
+          "계좌는 복사되었어요. 모바일 카카오페이에서 붙여넣기 후 송금해 주세요.",
       });
       return;
     }
@@ -930,15 +930,14 @@ export default function Home() {
                   </Button>
 
                   <p className="text-xs text-center text-gray-500">
-                    계좌번호가 복사됩니다. 주거래 은행 앱에서
-                    송금해주세요.
+                    가장 확실한 방법은 계좌 복사 후 직접 송금입니다.
                   </p>
 
                   {/* 구분선 */}
                   <div className="relative flex items-center gap-3 py-2">
                     <div className="flex-1 border-t border-gray-300"></div>
                     <span className="text-xs text-gray-500 px-2">
-                      간편 송금 앱으로 열기
+                      앱 열기(보조 수단)
                     </span>
                     <div className="flex-1 border-t border-gray-300"></div>
                   </div>
@@ -992,6 +991,10 @@ export default function Home() {
                       </span>
                     </Button>
                   </div>
+
+                  <p className="text-[11px] text-center text-gray-500">
+                    앱이 열리면 복사된 계좌번호를 붙여넣어 송금해 주세요.
+                  </p>
                 </div>
               </div>
             </motion.div>
