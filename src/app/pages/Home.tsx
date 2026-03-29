@@ -143,11 +143,21 @@ export default function Home() {
   };
 
   // 계좌번호 복사
-  const handleCopyAccount = async () => {
+  const copyAccountNumber = async () => {
     try {
       await navigator.clipboard.writeText(
         ACCOUNT_INFO.accountNumber,
       );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCopyAccount = async () => {
+    const copied = await copyAccountNumber();
+
+    if (copied) {
       toast.success("계좌번호가 복사되었습니다! 📋", {
         description: `${ACCOUNT_INFO.bank}에서 ${selectedAmount.toLocaleString()}원을 송금해 주세요`,
         duration: 5000,
@@ -155,7 +165,7 @@ export default function Home() {
 
       setShowBottomSheet(false);
       setPaymentMethodSelected(true);
-    } catch (error) {
+    } else {
       toast.error("복사 실패", {
         description: "계좌번호: " + ACCOUNT_INFO.accountNumber,
       });
@@ -181,50 +191,51 @@ export default function Home() {
   const isAndroidDevice = () => /Android/i.test(navigator.userAgent);
 
   // 카카오페이로 열기
-  const handleOpenKakaoPay = () => {
-    const transferLink = `kakaotalk://kakaopay/money/transfer?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&account=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}`;
+  const handleOpenKakaoPay = async () => {
     const payHomeLink = "kakaotalk://kakaopay/main";
+
+    const copied = await copyAccountNumber();
+    if (copied) {
+      toast.success("계좌를 복사했고 카카오페이 홈을 열어요", {
+        description:
+          "카카오페이에서 붙여넣기 후 송금해 주세요.",
+      });
+    } else {
+      toast.error("계좌 복사에 실패했어요", {
+        description:
+          "카카오페이 홈으로 이동 후 계좌번호를 직접 입력해 주세요.",
+      });
+    }
 
     if (!isMobileDevice()) {
       toast.error("모바일에서 카카오페이를 열 수 있어요", {
-        description: "계좌를 복사해두었습니다. 카카오페이 앱에서 직접 이체해 주세요.",
+        description:
+          "지금은 계좌가 복사된 상태예요. 모바일 카카오페이에서 송금해 주세요.",
       });
-      void handleCopyAccount();
       return;
     }
 
     setShowBottomSheet(false);
     setPaymentMethodSelected(true);
 
-    // 1) 직접 송금 화면 딥링크 시도
-    window.location.href = transferLink;
+    // 카카오페이 홈 열기
+    if (isAndroidDevice()) {
+      const androidIntent =
+        "intent://kakaopay/main#Intent;scheme=kakaotalk;package=com.kakao.talk;end";
+      window.location.href = androidIntent;
+    } else {
+      window.location.href = payHomeLink;
+    }
 
-    // 2) 직접 송금 딥링크가 막히는 기기에서는 카카오페이 홈으로 재시도
+    // 홈 실행도 실패하면 사용자에게 다음 동작을 명확히 안내
     setTimeout(() => {
       if (document.visibilityState === "visible") {
-        if (isAndroidDevice()) {
-          const androidIntent = `intent://kakaopay/main#Intent;scheme=kakaotalk;package=com.kakao.talk;end`;
-          window.location.href = androidIntent;
-        } else {
-          window.location.href = payHomeLink;
-        }
-      }
-    }, 600);
-
-    // 3) 여전히 실패하면 계좌복사로 진행 가능하게 보장
-    setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        toast.error("카카오페이 자동 연결이 실패했어요", {
+        toast.error("카카오페이 홈 실행에 실패했어요", {
           description:
-            "계좌를 복사해두었습니다. 카카오페이에서 직접 이체해 주세요.",
+            "계좌는 복사되어 있어요. 카카오톡 앱을 직접 열어 카카오페이로 송금해 주세요.",
         });
-        void handleCopyAccount();
       }
     }, 1400);
-
-    toast.success("카카오페이 연결을 시도합니다", {
-      description: "직접 송금 화면이 안 열리면 카카오페이 홈으로 자동 재시도해요.",
-    });
   };
 
   // 제출 처리
