@@ -46,6 +46,9 @@ const ACCOUNT_INFO = {
   accountHolder: "단국대 멋사대학",
 };
 
+const KAKAOPAY_SHARE_LINK =
+  String((import.meta as any).env?.VITE_KAKAOPAY_SHARE_LINK || "").trim();
+
 export default function Home() {
   const [step, setStep] = useState<Step>("form");
   const [selectedAmount, setSelectedAmount] =
@@ -218,6 +221,21 @@ export default function Home() {
 
     setShowBottomSheet(false);
     setPaymentMethodSelected(true);
+
+    // 0) 카카오페이 앱에서 생성한 공식 공유 링크가 있으면 최우선 사용
+    if (KAKAOPAY_SHARE_LINK) {
+      window.location.href = KAKAOPAY_SHARE_LINK;
+
+      setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          toast.error("카카오페이 링크 실행에 실패했어요", {
+            description:
+              "복사된 계좌번호를 카카오페이에 붙여넣어 송금해 주세요.",
+          });
+        }
+      }, 1400);
+      return;
+    }
 
     // 카카오페이 송금 진입 화면 열기
     if (isAndroidDevice()) {
