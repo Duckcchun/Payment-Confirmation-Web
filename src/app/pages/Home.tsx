@@ -289,7 +289,7 @@ export default function Home() {
 
     if (copied) {
       toast.success("계좌번호가 복사되었습니다! 📋", {
-        description: `${ACCOUNT_INFO.bank}에서 ${selectedAmount.toLocaleString()}원을 송금해 주세요`,
+        description: `${selectedAmount.toLocaleString()}원을 송금해 주세요`,
         duration: 5000,
       });
 
