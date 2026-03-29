@@ -113,21 +113,22 @@ export default function Home() {
 
   // sessionStorage에 현재 상태 저장 (카카오톡 웹뷰 종료/복귀 대비)
   const saveSessionState = () => {
-    sessionStorage.setItem(
-      "paymentState",
-      JSON.stringify({
-        step,
-        name,
-        studentId,
-        selectedAmount,
-        paymentMethodSelected,
-      }),
-    );
+    const state = {
+      step,
+      name,
+      studentId,
+      selectedAmount,
+      paymentMethodSelected,
+    };
+    // localStorage와 sessionStorage 둘 다 저장 (중복 보장)
+    sessionStorage.setItem("paymentState", JSON.stringify(state));
+    localStorage.setItem("paymentState", JSON.stringify(state));
   };
 
-  // sessionStorage에서 상태 복구
+  // localStorage에서 상태 복구
   const loadSessionState = () => {
-    const saved = sessionStorage.getItem("paymentState");
+    // localStorage 먼저 확인, 없으면 sessionStorage 확인
+    const saved = localStorage.getItem("paymentState") || sessionStorage.getItem("paymentState");
     if (saved) {
       try {
         const state = JSON.parse(saved);
@@ -136,6 +137,7 @@ export default function Home() {
         setStudentId(state.studentId);
         setSelectedAmount(state.selectedAmount);
         setPaymentMethodSelected(state.paymentMethodSelected);
+        // 복구 후 localStorage에서 지우지 않음 (다시 필요할 수 있음)
       } catch {
         // 파싱 실패 시 무시
       }
@@ -152,13 +154,20 @@ export default function Home() {
       }
     };
 
+    // 페이지가 닫히기 전에 상태 저장 (매우 중요)
+    const handleBeforeUnload = () => {
+      saveSessionState();
+    };
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     // 초기 로드 시 저장된 상태 복구 시도
     loadSessionState();
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
 
@@ -247,14 +256,21 @@ export default function Home() {
     // 메시지에 사용자 이름 포함
     const msg = name.trim() ? `${name} - 멋쟁이사자처럼14기` : "멋쟁이사자처럼14기";
     const tossLink = `supertoss://send?bank=${encodeURIComponent(ACCOUNT_INFO.bank)}&accountNo=${encodeURIComponent(ACCOUNT_INFO.accountNumber)}&amount=${encodeURIComponent(String(selectedAmount))}&msg=${encodeURIComponent(msg)}`;
+    
+    // 상태 업데이트 및 바텀시트 닫기 (UI 먼저 변경)
+    setShowBottomSheet(false);
+    setPaymentMethodSelected(true);
+
+    // 딥링크 열기 직후 추가로 상태 저장 (웹뷰 닫힘 대비)
+    setTimeout(() => {
+      saveSessionState();
+    }, 100);
+
     window.open(tossLink, "_blank");
 
     toast.success("토스 앱으로 이동합니다", {
       description: `송금 후 확인 요청 버튼을 눌러주세요`,
     });
-
-    setShowBottomSheet(false);
-    setPaymentMethodSelected(true);
   };
 
   const isMobileDevice = () =>
