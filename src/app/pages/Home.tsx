@@ -69,7 +69,31 @@ export default function Home() {
   const [shiftCount, setShiftCount] = useState(0);
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
+  const escapeAttemptedRef = useRef(false);
   const navigate = useNavigate();
+
+  const isKakaoInAppBrowser = useCallback(
+    () => /KAKAOTALK/i.test(navigator.userAgent),
+    [],
+  );
+
+  // 카카오 인앱에서는 기본 브라우저로 강제 전환 (딥링크 안정성 확보)
+  useEffect(() => {
+    if (!isKakaoInAppBrowser() || escapeAttemptedRef.current) {
+      return;
+    }
+
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.get("external_browser") === "1") {
+      return;
+    }
+
+    currentUrl.searchParams.set("external_browser", "1");
+    escapeAttemptedRef.current = true;
+    window.location.href =
+      "kakaotalk://web/openExternal?url=" +
+      encodeURIComponent(currentUrl.toString());
+  }, [isKakaoInAppBrowser]);
 
   // Shift 키 5번 연속 감지
   useEffect(() => {
@@ -146,7 +170,7 @@ export default function Home() {
   );
 
   // localStorage에서 상태 복구
-  const loadSessionState = useCallback(() => {
+  const loadSessionState = useCallback((persistPaymentMethod = true) => {
     // localStorage 먼저 확인, 없으면 sessionStorage 확인
     const saved = localStorage.getItem("paymentState") || sessionStorage.getItem("paymentState");
     if (saved) {
@@ -156,7 +180,11 @@ export default function Home() {
         setName(state.name || "");
         setStudentId(state.studentId || "");
         setSelectedAmount(state.selectedAmount || 30000);
-        setPaymentMethodSelected(state.paymentMethodSelected || false);
+        setPaymentMethodSelected(
+          persistPaymentMethod
+            ? state.paymentMethodSelected || false
+            : false,
+        );
       } catch (e) {
         console.error("Failed to parse saved state:", e);
       }
@@ -165,8 +193,8 @@ export default function Home() {
 
   // 페이지 포커스 복귀 감지 + beforeunload 처리
   useEffect(() => {
-    // 초기 로드 시 저장된 상태 복구
-    loadSessionState();
+    // 초기 로드(새로고침 포함)에서는 초록 버튼 상태를 복구하지 않음
+    loadSessionState(false);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -276,6 +304,33 @@ export default function Home() {
 
   // 토스로 열기
   const handleOpenToss = () => {
+    if (isKakaoInAppBrowser()) {
+      copyAccountNumber().then((copied) => {
+        if (copied) {
+          toast.info("카카오톡에서는 자동 실행 시 페이지가 닫힐 수 있어요", {
+            description:
+              "계좌를 복사했어요. 토스 앱을 직접 열어 붙여넣기 후 송금해 주세요.",
+          });
+        } else {
+          toast.error("카카오톡에서는 자동 실행 시 페이지가 닫힐 수 있어요", {
+            description:
+              "토스 앱을 직접 열어 계좌번호를 입력해 송금해 주세요.",
+          });
+        }
+      });
+
+      setShowBottomSheet(false);
+      setPaymentMethodSelected(true);
+      saveSessionState({
+        step,
+        name,
+        studentId,
+        selectedAmount,
+        paymentMethodSelected: true,
+      });
+      return;
+    }
+
     // 토스 앱 열기 전에 현재 + 다음 상태를 미리 저장
     saveSessionState({
       step,
